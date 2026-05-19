@@ -1,6 +1,7 @@
 from dateutil.relativedelta import relativedelta
 
-from odoo import api, models, fields
+from odoo import _, api, fields, models
+from odoo.exceptions import UserError, ValidationError
 
 
 class EstatePropertyTag(models.Model):
@@ -8,6 +9,11 @@ class EstatePropertyTag(models.Model):
     _description = 'Real Estate Property Tag'
 
     name = fields.Char(required=True)
+
+    _name_unique = models.Constraint(
+        'UNIQUE(name)',
+        'Tag name must be unique',
+    )
 
 
 class EstateProperty(models.Model):
@@ -24,6 +30,7 @@ class EstateProperty(models.Model):
     expected_price = fields.Float()
     selling_price = fields.Float(
         compute='_compute_selling_price',
+        store=True,
         readonly=True,
         copy=False,
     )
@@ -80,6 +87,16 @@ class EstateProperty(models.Model):
             accepted = prop.offer_ids.filtered(lambda o: o.status == 'accepted')
             prop.selling_price = accepted[:1].price if accepted else 0.0
 
+    @api.constrains('expected_price', 'selling_price')
+    def _check_selling_price(self):
+        for prop in self:
+            if not prop.selling_price:
+                continue
+            if prop.selling_price < 0.9 * prop.expected_price:
+                raise ValidationError(
+                    _("The selling price cannot be lower than 90%% of the expected price.")
+                )
+
     @api.onchange('garden')
     def _onchange_garden(self):
         if self.garden:
@@ -89,11 +106,27 @@ class EstateProperty(models.Model):
             self.garden_area = False
             self.garden_orientation = False
 
+    def action_cancel(self):
+        for prop in self:
+            if prop.state == 'sold':
+                raise UserError(_("Sold properties cannot be cancelled."))
+        self.write({'state': 'cancelled'})
+
+    def action_sold(self):
+        for prop in self:
+            if prop.state == 'cancelled':
+                raise UserError(_("Cancelled properties cannot be sold."))
+        self.write({'state': 'sold'})
+
     _name_required = models.Constraint(
         'CHECK (name IS NOT NULL)',
         'Name is required',
     )
-    _expected_price_required = models.Constraint(
-        'CHECK (expected_price IS NOT NULL)',
-        'Expected price is required',
+    _expected_price_positive = models.Constraint(
+        'CHECK (expected_price > 0)',
+        'The expected price must be strictly positive',
+    )
+    _selling_price_positive = models.Constraint(
+        'CHECK (selling_price >= 0)',
+        'The selling price must be positive',
     )

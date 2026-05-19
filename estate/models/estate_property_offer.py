@@ -1,6 +1,7 @@
 from datetime import timedelta
 
-from odoo import api, models, fields
+from odoo import _, api, fields, models
+from odoo.exceptions import UserError
 
 
 class EstatePropertyOffer(models.Model):
@@ -25,7 +26,6 @@ class EstatePropertyOffer(models.Model):
             ('refused', 'Refused'),
         ],
         copy=False,
-        default='accepted',
     )
     partner_id = fields.Many2one('res.partner', required=True)
     property_id = fields.Many2one(
@@ -45,3 +45,26 @@ class EstatePropertyOffer(models.Model):
             base = offer._reference_date()
             if offer.date_deadline:
                 offer.validity = (offer.date_deadline - base).days
+
+    def action_accept(self):
+        for offer in self:
+            if offer.property_id.state in ('sold', 'cancelled'):
+                raise UserError(_("Cannot accept an offer on a sold or cancelled property."))
+            if offer.property_id.offer_ids.filtered(
+                lambda o: o.status == 'accepted' and o.id != offer.id
+            ):
+                raise UserError(_("Only one offer can be accepted per property."))
+            offer.status = 'accepted'
+            (offer.property_id.offer_ids - offer).write({'status': 'refused'})
+            offer.property_id.write({
+                'buyer_id': offer.partner_id.id,
+                'state': 'offer_accepted',
+            })
+
+    def action_refuse(self):
+        self.write({'status': 'refused'})
+
+    _offer_price_positive = models.Constraint(
+        'CHECK (price > 0)',
+        'The offer price must be strictly positive',
+    )
