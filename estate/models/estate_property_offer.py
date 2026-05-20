@@ -34,6 +34,11 @@ class EstatePropertyOffer(models.Model):
         required=True,
         ondelete='cascade',
     )
+    property_type_id = fields.Many2one(
+        'estate.property.type',
+        related='property_id.property_type_id',
+        store=True,
+    )
 
     @api.depends('create_date', 'validity')
     def _compute_date_deadline(self):
