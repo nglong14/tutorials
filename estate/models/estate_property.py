@@ -7,6 +7,7 @@ from odoo.exceptions import UserError, ValidationError
 class EstatePropertyTag(models.Model):
     _name = 'estate.property.tag'
     _description = 'Real Estate Property Tag'
+    _order = 'name'
 
     name = fields.Char(required=True)
 
@@ -19,6 +20,7 @@ class EstatePropertyTag(models.Model):
 class EstateProperty(models.Model):
     _name = 'estate.property'
     _description = 'Estate Property'
+    _order = 'id desc'
 
     name = fields.Char()
     description = fields.Text()
@@ -65,6 +67,7 @@ class EstateProperty(models.Model):
         string='Salesperson',
         default=lambda self: self.env.user,
     )
+    property_type_id = fields.Many2one('estate.property.type', string='Property Type')
     tag_ids = fields.Many2many('estate.property.tag', string='Tags')
     offer_ids = fields.One2many('estate.property.offer', 'property_id', string='Offers')
 
