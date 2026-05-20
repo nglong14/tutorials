@@ -122,6 +122,11 @@ class EstateProperty(models.Model):
                 raise UserError(_("Cancelled properties cannot be sold."))
         self.write({'state': 'sold'})
 
+    @api.ondelete(at_uninstall=False)
+    def _unlink_except_new_or_cancelled(self):
+        if any(prop.state not in ('new', 'cancelled') for prop in self):
+            raise UserError(_("Only properties in 'New' or 'Cancelled' state can be deleted."))
+
     _name_required = models.Constraint(
         'CHECK (name IS NOT NULL)',
         'Name is required',

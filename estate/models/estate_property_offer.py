@@ -70,6 +70,23 @@ class EstatePropertyOffer(models.Model):
     def action_refuse(self):
         self.write({'status': 'refused'})
 
+    @api.model_create_multi
+    def create(self, vals_list):
+        for vals in vals_list:
+            property_id = vals.get('property_id')
+            price = vals.get('price')
+            if property_id and price is not None:
+                existing_offers = self.env['estate.property.offer'].search([
+                    ('property_id', '=', property_id),
+                ])
+                if existing_offers and price < max(existing_offers.mapped('price')):
+                    raise UserError(
+                        _("The offer amount is lower than an existing offer.")
+                    )
+        offers = super().create(vals_list)
+        offers.property_id.write({'state': 'offer_received'})
+        return offers
+
     _offer_price_positive = models.Constraint(
         'CHECK (price > 0)',
         'The offer price must be strictly positive',
