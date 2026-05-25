@@ -52,7 +52,7 @@ class EstatePropertyOffer(models.Model):
             if offer.date_deadline:
                 offer.validity = (offer.date_deadline - base).days
 
-    def action_accept(self):
+    def action_accept(self):    
         for offer in self:
             if offer.property_id.state in ('sold', 'cancelled'):
                 raise UserError(_("Cannot accept an offer on a sold or cancelled property."))
